@@ -197,7 +197,7 @@ INSERT INTO {{ GetFullTableName $stmt.Schema $stmt.Table }} (
     {{- range $colIndex, $column := $stmt.Columns }}
       {{- $value := index $row $column }}
         {{- if IsHashedColumn $column }}
-          {{ HashFunc $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
+          '{{ HashFunc $value }}' {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- else }}
           {{ $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- end }}
