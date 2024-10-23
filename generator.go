@@ -176,20 +176,21 @@ func (g *Generator) GenerateTableData(data []map[string]interface{}, schemaName 
 func (g *Generator) Generate(data SQLData) (string, error) {
 	// Define the template functions.
 	funcMap := template.FuncMap{
-		"IsLastIndex":      g.IsLastIndex,
-		"GetFullTableName": g.Adapter.GetFullTableName,
-		"HashFunc":         g.HashFunc,
-		"GetColumnName":    g.GetColumnName,
-		"IsHashedColumn":   g.Adapter.IsHashedColumn,
+		"IsLastIndex":           g.IsLastIndex,
+		"GetFullTableName":      g.Adapter.GetFullTableName,
+		"HashFunc":              g.HashFunc,
+		"WraptWithSingleQuoute": g.Adapter.WrapWithSingleQoute,
+		"GetColumnName":         g.GetColumnName,
+		"IsHashedColumn":        g.Adapter.IsHashedColumn,
 	}
 
 	// Read the SQL template from the template path.
+
 	templateContent := `
 {{- range $stmt := .Statements }}
 INSERT INTO {{ GetFullTableName $stmt.Schema $stmt.Table }} (
   {{- range $index, $column := $stmt.Columns }} 
   {{ GetColumnName $column }} {{- if not (IsLastIndex $index $stmt.Columns) }}, {{ end }}
-
   {{- end }}
 ) VALUES
 {{- range $rowIndex, $row := $stmt.Rows }}
@@ -199,13 +200,14 @@ INSERT INTO {{ GetFullTableName $stmt.Schema $stmt.Table }} (
         {{- if IsHashedColumn $column }}
           '{{ HashFunc $value }}' {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- else }}
-          {{ $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
+          {{ WrapWithSingleQoute $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- end }}
       {{- end }}
   ) {{- if not (IsLastIndex $rowIndex $stmt.Rows) }}, {{ end }}
 {{- end }};
 {{- end }}
 	`
+
 	// Parse the SQL template.
 	tmpl, err := template.New("sql").Funcs(funcMap).Parse(templateContent)
 	if err != nil {
