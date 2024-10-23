@@ -88,7 +88,7 @@ func (a *Adapter) WrapWithSingleQoute(value string) string {
 	if value == "" || value == "NULL" || value == "null" {
 		return "NULL"
 	}
-	if strings.Contains(value, "(") {
+	if strings.Contains(value, "SELECT") {
 		return value
 	}
 	return fmt.Sprintf("'%s'", value)
