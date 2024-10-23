@@ -184,13 +184,30 @@ func (g *Generator) Generate(data SQLData) (string, error) {
 	}
 
 	// Read the SQL template from the template path.
-	tmplBytes, err := os.ReadFile(g.TemplatePath)
-	if err != nil {
-		return "", err
-	}
+	templateContent := `
+{{- range $stmt := .Statements }}
+INSERT INTO {{ GetFullTableName $stmt.Schema $stmt.Table }} (
+  {{- range $index, $column := $stmt.Columns }} 
+  {{ GetColumnName $column }} {{- if not (IsLastIndex $index $stmt.Columns) }}, {{ end }}
 
+  {{- end }}
+) VALUES
+{{- range $rowIndex, $row := $stmt.Rows }}
+  (
+    {{- range $colIndex, $column := $stmt.Columns }}
+      {{- $value := index $row $column }}
+        {{- if IsHashedColumn $column }}
+          {{ HashFunc $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
+        {{- else }}
+          {{ $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
+        {{- end }}
+      {{- end }}
+  )
+{{- end }};
+{{- end }}
+	`
 	// Parse the SQL template.
-	tmpl, err := template.New("sql").Funcs(funcMap).Parse(string(tmplBytes))
+	tmpl, err := template.New("sql").Funcs(funcMap).Parse(templateContent)
 	if err != nil {
 		return "", err
 	}
