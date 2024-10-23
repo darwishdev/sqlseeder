@@ -38,8 +38,14 @@ type Generator struct {
 }
 
 func NewGenerator(adapter AdapterInterface, delimiter string, oneToManyDelimiter string, manyToManyDelimiter string, hashFunc func(string) string) GeneratorInterface {
+	execPath, err := os.Executable()
+	if err != nil {
+		panic(err) // Handle the error appropriately
+	}
+
+	tmpleatePath := fmt.Sprintf("%s/insert.tmpl", execPath)
 	return &Generator{
-		TemplatePath:        "../insert.tmpl", // Path to the SQL template file
+		TemplatePath:        tmpleatePath, // Path to the SQL template file
 		Delimiter:           delimiter,
 		ManyToManyDelimiter: manyToManyDelimiter,
 		OneToManyDelimiter:  oneToManyDelimiter,
