@@ -200,7 +200,7 @@ INSERT INTO {{ GetFullTableName $stmt.Schema $stmt.Table }} (
         {{- if IsHashedColumn $column }}
           '{{ HashFunc $value }}' {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- else }}
-          {{ WrapWithSingleQoute $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
+          {{ WraptWithSingleQuoute $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- end }}
       {{- end }}
   ) {{- if not (IsLastIndex $rowIndex $stmt.Rows) }}, {{ end }}
