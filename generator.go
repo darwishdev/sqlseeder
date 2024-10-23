@@ -202,7 +202,7 @@ INSERT INTO {{ GetFullTableName $stmt.Schema $stmt.Table }} (
           {{ $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- end }}
       {{- end }}
-  )
+  ) {{- if not (IsLastIndex $rowIndex $stmt.Rows) }}, {{ end }}
 {{- end }};
 {{- end }}
 	`

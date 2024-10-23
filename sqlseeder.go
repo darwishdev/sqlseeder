@@ -108,8 +108,6 @@ func (s *Seeder) SeedFromExcel(excelContent bytes.Buffer, schemaName string, tab
 
 	// Get the header row (column names)
 	columns := rows[0]
-
-	fmt.Println(columns, "header")
 	// Prepare the data as a slice of maps
 	var data []map[string]interface{}
 	for _, row := range rows[1:] { // Start from the second row (index 1)
