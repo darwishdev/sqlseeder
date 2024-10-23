@@ -86,7 +86,10 @@ func (a *Adapter) IsOneToMany(columnName string) bool {
 // WrapWithSingleQoute wraps a value in single quotes.
 func (a *Adapter) WrapWithSingleQoute(value string) string {
 	if value == "" || value == "NULL" || value == "null" {
-		return ""
+		return "NULL"
+	}
+	if strings.Contains(value, "(") {
+		return value
 	}
 	return fmt.Sprintf("'%s'", value)
 }
