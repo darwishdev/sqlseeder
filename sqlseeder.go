@@ -1,0 +1,183 @@
+package sqlseeder
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"strings"
+
+	"github.com/tangzero/inflector"
+	"github.com/xuri/excelize/v2"
+)
+
+// SeederInterface defines a method for generating a query string from a model
+type SeederInterface interface {
+	// SeedFromJSON generates SQL INSERT statements from JSON data.
+	SeedFromJSON(jsonContent bytes.Buffer, schemaName string, tableName string) (string, error)
+	// SeedFromExcel generates SQL INSERT statements from Excel data.
+	SeedFromExcel(excelContent bytes.Buffer, schemaName string, tableName string, sheetName string) (string, error)
+	GetGenerator() GeneratorInterface
+	GetAdapter() AdapterInterface
+}
+
+// Seeder implements the SeederInterface and holds a reference to a Seeder
+type Seeder struct {
+	Generator GeneratorInterface
+	Delimiter string
+	Adapter   AdapterInterface
+}
+type SeederConfig struct {
+	OneToManyDelimiter     string
+	ManyToManyRowDelimiter string
+	ManyToManyDelimiter    string
+}
+
+func NewSeeder(config SeederConfig) SeederInterface {
+	delemiter := "|"
+	oneToManyDelimiter := "**"
+	manyToManyDelimiter := "***"
+	if config.ManyToManyDelimiter != "" {
+		manyToManyDelimiter = config.ManyToManyDelimiter
+	}
+	if config.OneToManyDelimiter != "" {
+		oneToManyDelimiter = config.OneToManyDelimiter
+	}
+	if config.ManyToManyRowDelimiter != "" {
+		delemiter = config.ManyToManyRowDelimiter
+	}
+	adapter := NewAdapter(oneToManyDelimiter, manyToManyDelimiter)
+	generator := NewGenerator(adapter, delemiter)
+	return &Seeder{
+		Adapter:   adapter,
+		Delimiter: delemiter,
+		Generator: generator,
+	}
+}
+func getPrimaryKeyFromTableName(tableName string) string {
+	singluraizedName := inflector.Singularize(tableName)
+	return fmt.Sprintf("%s_id", singluraizedName)
+}
+func findColumnIndex(row map[string]interface{}, columnName string) int {
+	counter := 0
+	for key := range row {
+		fmt.Println("column", key, columnName)
+		if key == columnName {
+			return counter
+		}
+		counter++
+	}
+	return counter
+}
+func getManyToManyColumns(row map[string]interface{}) []string {
+	result := []string{}
+	for key := range row {
+		if strings.Contains(key, "***") {
+			result = append(result, key)
+		}
+	}
+
+	return result
+}
+
+type ManyToManyParser struct {
+	tableName string
+	columns   []string
+}
+
+func parseManyToManyColumnName(columnName string, schemaName string, tableName string) (ManyToManyParser, error) {
+	parts := strings.Split(columnName, "***")
+	if len(parts) != 5 {
+		return ManyToManyParser{}, fmt.Errorf("not valid many to many column name")
+	}
+	firstColumn := fmt.Sprintf("%s**%s**%s", getPrimaryKeyFromTableName(tableName), fmt.Sprintf("%s.%s", schemaName, tableName), parts[4])
+	secondColumn := fmt.Sprintf("%s**%s**%s", parts[0], parts[2], parts[3])
+	result := []string{firstColumn, secondColumn}
+	return ManyToManyParser{
+		tableName: parts[1],
+		columns:   result,
+	}, nil
+}
+
+func getRootColumns(row map[string]interface{}) []string {
+	result := []string{}
+	for key := range row {
+		if !strings.Contains(key, "***") {
+			result = append(result, key)
+		}
+	}
+	return result
+}
+func (s *Seeder) GetGenerator() GeneratorInterface {
+	return s.Generator
+
+}
+
+func (s *Seeder) GetAdapter() AdapterInterface {
+	return s.Adapter
+
+}
+
+// SeedFromJSON parses the JSON content from the buffer and generates the SQL
+func (s *Seeder) SeedFromJSON(jsonContent bytes.Buffer, schemaName string, tableName string) (string, error) {
+
+	// Unmarshal JSON data into SQLData struct
+	var data []map[string]interface{}
+	err := json.Unmarshal(jsonContent.Bytes(), &data)
+	if err != nil {
+		return "", err
+	}
+	sqlData, err := s.Generator.GenerateTableData(data, schemaName, tableName)
+	if err != nil {
+		return "", err
+	}
+	result, err := s.Generator.Generate(*sqlData)
+	if err != nil {
+		return "", err
+	}
+
+	return result, nil
+}
+
+func (s *Seeder) SeedFromExcel(excelContent bytes.Buffer, schemaName string, tableName string, sheetName string) (string, error) {
+	// ... (code to open Excel file) ...
+	f, err := excelize.OpenReader(&excelContent)
+	if err != nil {
+		return "", fmt.Errorf("failed to open Excel file: %w", err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			fmt.Println("failed to close Excel file:", err)
+		}
+	}()
+	// Get the specified sheet
+	rows, err := f.GetRows(sheetName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get sheet '%s': %w", sheetName, err)
+	}
+	// Check if the sheet has any data
+	if len(rows) <= 1 { // Must have at least 2 rows (header + data)
+		return "", fmt.Errorf("sheet '%s' has no data", sheetName)
+	}
+
+	// Get the header row (column names)
+	columns := rows[0]
+
+	// Prepare the data as a slice of maps
+	var data []map[string]interface{}
+	for _, row := range rows[1:] { // Start from the second row (index 1)
+		dataRow := make(map[string]interface{})
+		for colIndex, colCell := range row {
+			dataRow[columns[colIndex]] = colCell
+		}
+		data = append(data, dataRow)
+	}
+	sqlData, err := s.Generator.GenerateTableData(data, schemaName, tableName)
+	if err != nil {
+		return "", err
+	}
+	result, err := s.Generator.Generate(*sqlData)
+	if err != nil {
+		return "", err
+	}
+	return result, nil
+}

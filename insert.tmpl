@@ -1,0 +1,19 @@
+
+{{- range $stmt := .Statements }}
+INSERT INTO {{ GetFullTableName $stmt.Schema $stmt.Table }} (
+  {{- range $index, $column := $stmt.Columns }} 
+  {{ GetColumnName $column }} {{- if not (IsLastIndex $index $stmt.Columns) }}, {{ end }}
+
+  {{- end }}
+) VALUES
+{{- range $rowIndex, $row := $stmt.Rows }}
+  (
+    {{- range $colIndex, $column := $stmt.Columns }}
+      {{- $value := index $row $column }}
+              {{ $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
+
+      {{- end }}
+  )
+{{- end }};
+{{- end }}
+
