@@ -95,9 +95,6 @@ func (g *Generator) GenerateRootTableDataRow(rootColumns []string, row map[strin
 	for _, rootColumn := range rootColumns {
 		var err error
 		value := row[rootColumn].(string)
-		if value != "null" && value != "NULL" {
-			value = g.Adapter.WrapWithSingleQoute(row[rootColumn].(string))
-		}
 		isOneToMany := g.Adapter.IsOneToMany(rootColumn)
 		if isOneToMany {
 			value, err = g.GenerateOneToManySubquery(rootColumn, tableName, row[rootColumn].(string))
