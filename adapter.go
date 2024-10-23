@@ -27,7 +27,8 @@ type AdapterInterface interface {
 
 	// IsOneToMany checks if a column represents a one-to-many relationship.
 	IsOneToMany(columnName string) bool
-
+	// IsHashedColumn checks if a column represents a password so it should be hashed
+	IsHashedColumn(columnName string) bool
 	// GetFullTableName returns the full table name with the schema (if provided).
 	GetFullTableName(schemaName string, tableName string) string
 
@@ -73,6 +74,11 @@ func (a *Adapter) GetFullTableName(schemaName string, tableName string) string {
 }
 
 // IsOneToMany checks if a column represents a one-to-many relationship.
+func (a *Adapter) IsHashedColumn(columnName string) bool {
+	return strings.Contains(columnName, "#") && len(strings.Split(columnName, "#")) == 2
+}
+
+// IsOneToMany checks if a column represents a one-to-many relationship.
 func (a *Adapter) IsOneToMany(columnName string) bool {
 	return strings.Contains(columnName, a.OneToManyDelimiter) && !strings.Contains(columnName, a.ManyToManyDelimiter)
 }
@@ -103,7 +109,7 @@ func (a *Adapter) ParseManyToMany(columnName string, schemaName string, tableNam
 		return response, fmt.Errorf("not valid many to many column name: %s", columnName)
 	}
 	fullTableName := a.GetFullTableName(schemaName, tableName)
-	firstColumn := fmt.Sprintf("%s%s%s%s%s", getPrimaryKeyFromTableName(tableName), a.OneToManyDelimiter, fullTableName, a.OneToManyDelimiter, parts[4])
+	firstColumn := fmt.Sprintf("%s%s%s%s%s", a.GetPrimaryKeyFromTableName(tableName), a.OneToManyDelimiter, fullTableName, a.OneToManyDelimiter, parts[4])
 	secondColumn := fmt.Sprintf("%s%s%s%s%s", parts[0], a.OneToManyDelimiter, parts[2], a.OneToManyDelimiter, parts[3])
 	result := []string{firstColumn, secondColumn}
 	response = ManyToManyRelation{

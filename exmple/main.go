@@ -7,11 +7,19 @@ import (
 
 	"github.com/darwishdev/sqlseeder"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/crypto/bcrypt"
 )
 
+func hashPassword(pass string) string {
+	password, _ := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+	return string(password)
+
+}
 func main() {
 	// Create an instance of SQLGenerator
-	seeder := sqlseeder.NewSeeder(sqlseeder.SeederConfig{})
+	seeder := sqlseeder.NewSeeder(sqlseeder.SeederConfig{
+		HashFunc: hashPassword,
+	})
 	// Create an instance of SeederImpl with the generator
 
 	// Example: Seed from JSON

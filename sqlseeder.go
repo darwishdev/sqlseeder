@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
 
-	"github.com/tangzero/inflector"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -24,10 +22,12 @@ type SeederInterface interface {
 type Seeder struct {
 	Generator GeneratorInterface
 	Delimiter string
+	HashFunc  func(string) string
 	Adapter   AdapterInterface
 }
 type SeederConfig struct {
 	OneToManyDelimiter     string
+	HashFunc               func(string) string
 	ManyToManyRowDelimiter string
 	ManyToManyDelimiter    string
 }
@@ -46,66 +46,13 @@ func NewSeeder(config SeederConfig) SeederInterface {
 		delemiter = config.ManyToManyRowDelimiter
 	}
 	adapter := NewAdapter(oneToManyDelimiter, manyToManyDelimiter)
-	generator := NewGenerator(adapter, delemiter)
+	generator := NewGenerator(adapter, delemiter, oneToManyDelimiter, manyToManyDelimiter, config.HashFunc)
 	return &Seeder{
 		Adapter:   adapter,
+		HashFunc:  config.HashFunc,
 		Delimiter: delemiter,
 		Generator: generator,
 	}
-}
-func getPrimaryKeyFromTableName(tableName string) string {
-	singluraizedName := inflector.Singularize(tableName)
-	return fmt.Sprintf("%s_id", singluraizedName)
-}
-func findColumnIndex(row map[string]interface{}, columnName string) int {
-	counter := 0
-	for key := range row {
-		fmt.Println("column", key, columnName)
-		if key == columnName {
-			return counter
-		}
-		counter++
-	}
-	return counter
-}
-func getManyToManyColumns(row map[string]interface{}) []string {
-	result := []string{}
-	for key := range row {
-		if strings.Contains(key, "***") {
-			result = append(result, key)
-		}
-	}
-
-	return result
-}
-
-type ManyToManyParser struct {
-	tableName string
-	columns   []string
-}
-
-func parseManyToManyColumnName(columnName string, schemaName string, tableName string) (ManyToManyParser, error) {
-	parts := strings.Split(columnName, "***")
-	if len(parts) != 5 {
-		return ManyToManyParser{}, fmt.Errorf("not valid many to many column name")
-	}
-	firstColumn := fmt.Sprintf("%s**%s**%s", getPrimaryKeyFromTableName(tableName), fmt.Sprintf("%s.%s", schemaName, tableName), parts[4])
-	secondColumn := fmt.Sprintf("%s**%s**%s", parts[0], parts[2], parts[3])
-	result := []string{firstColumn, secondColumn}
-	return ManyToManyParser{
-		tableName: parts[1],
-		columns:   result,
-	}, nil
-}
-
-func getRootColumns(row map[string]interface{}) []string {
-	result := []string{}
-	for key := range row {
-		if !strings.Contains(key, "***") {
-			result = append(result, key)
-		}
-	}
-	return result
 }
 func (s *Seeder) GetGenerator() GeneratorInterface {
 	return s.Generator
@@ -162,6 +109,7 @@ func (s *Seeder) SeedFromExcel(excelContent bytes.Buffer, schemaName string, tab
 	// Get the header row (column names)
 	columns := rows[0]
 
+	fmt.Println(columns, "header")
 	// Prepare the data as a slice of maps
 	var data []map[string]interface{}
 	for _, row := range rows[1:] { // Start from the second row (index 1)

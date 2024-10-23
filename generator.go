@@ -29,16 +29,23 @@ type GeneratorInterface interface {
 }
 
 type Generator struct {
-	TemplatePath string
-	Delimiter    string
-	Adapter      AdapterInterface
+	TemplatePath        string
+	ManyToManyDelimiter string
+	OneToManyDelimiter  string
+	Delimiter           string
+	HashFunc            func(string) string
+	Adapter             AdapterInterface
 }
 
-func NewGenerator(adapter AdapterInterface, delimiter string) GeneratorInterface {
+func NewGenerator(adapter AdapterInterface, delimiter string, oneToManyDelimiter string, manyToManyDelimiter string, hashFunc func(string) string) GeneratorInterface {
 	return &Generator{
-		TemplatePath: "../insert.tmpl", // Path to the SQL template file
-		Delimiter:    delimiter,
-		Adapter:      adapter,
+		TemplatePath:        "../insert.tmpl", // Path to the SQL template file
+		Delimiter:           delimiter,
+		ManyToManyDelimiter: manyToManyDelimiter,
+		OneToManyDelimiter:  oneToManyDelimiter,
+		HashFunc:            hashFunc,
+
+		Adapter: adapter,
 	}
 }
 
@@ -65,7 +72,11 @@ func (g *Generator) IsLastIndex(index int, a interface{}) bool {
 // GetColumnName extracts the base column name (the part before any delimiters).
 func (g *Generator) GetColumnName(column string) string {
 	if g.Adapter.IsOneToMany(column) {
-		parts := strings.Split(column, "**")
+		parts := strings.Split(column, g.OneToManyDelimiter)
+		return parts[0]
+	}
+	if g.Adapter.IsHashedColumn(column) {
+		parts := strings.Split(column, "#")
 		return parts[0]
 	}
 	return column
@@ -86,11 +97,9 @@ func (g *Generator) GenerateRootTableDataRow(rootColumns []string, row map[strin
 			}
 		}
 		rootRow[rootColumn] = value
-
 	}
 
 	return rootRow, nil
-
 }
 
 // GenerateTableData generates SQLData from a slice of maps.
@@ -163,7 +172,9 @@ func (g *Generator) Generate(data SQLData) (string, error) {
 	funcMap := template.FuncMap{
 		"IsLastIndex":      g.IsLastIndex,
 		"GetFullTableName": g.Adapter.GetFullTableName,
+		"HashFunc":         g.HashFunc,
 		"GetColumnName":    g.GetColumnName,
+		"IsHashedColumn":   g.Adapter.IsHashedColumn,
 	}
 
 	// Read the SQL template from the template path.
