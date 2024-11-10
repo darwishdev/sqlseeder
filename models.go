@@ -18,6 +18,7 @@ type ManyToManyRelation struct {
 type OneToManyRelation struct {
 	Table      string
 	PrimaryKey string
+	ForeignKey string
 	SearchKey  string
 }
 type ColumnsStatemntParts struct {

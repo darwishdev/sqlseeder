@@ -157,14 +157,26 @@ func (a *Adapter) ParseManyToManyColumns(columns []string, schemaName string, ta
 func (a *Adapter) ParseOneToMany(columnName string, tableName string) (OneToManyRelation, error) {
 	parts := strings.Split(columnName, a.OneToManyDelimiter)
 	response := OneToManyRelation{}
-	if len(parts) != 3 {
+	if len(parts) != 3 || len(parts) != 4 {
 		return response, fmt.Errorf("not valid one to many column name: %s", columnName)
 	}
-	response = OneToManyRelation{
-		Table:      parts[1],
-		PrimaryKey: parts[0],
-		SearchKey:  parts[2],
+	if len(parts) == 3 {
+		response = OneToManyRelation{
+			ForeignKey: parts[0],
+			PrimaryKey: parts[0],
+			Table:      parts[1],
+			SearchKey:  parts[2],
+		}
 	}
+	if len(parts) == 4 {
+		response = OneToManyRelation{
+			ForeignKey: parts[0],
+			PrimaryKey: parts[1],
+			Table:      parts[2],
+			SearchKey:  parts[3],
+		}
+	}
+
 	return response, nil
 }
 
