@@ -1,2 +1,2 @@
 build_push:
-	git add . && git commit -m '$(msg)' && gith psuh && git tag $(tag) && git push origin $(tag)
+	git add . && git commit -m '$(msg)' && git push && git tag $(tag) && git push origin $(tag)

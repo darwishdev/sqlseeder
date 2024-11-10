@@ -157,7 +157,7 @@ func (a *Adapter) ParseManyToManyColumns(columns []string, schemaName string, ta
 func (a *Adapter) ParseOneToMany(columnName string, tableName string) (OneToManyRelation, error) {
 	parts := strings.Split(columnName, a.OneToManyDelimiter)
 	response := OneToManyRelation{}
-	if len(parts) != 3 || len(parts) != 4 {
+	if len(parts) != 3 && len(parts) != 4 {
 		return response, fmt.Errorf("not valid one to many column name: %s", columnName)
 	}
 	if len(parts) == 3 {
