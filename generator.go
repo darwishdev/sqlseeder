@@ -64,7 +64,7 @@ func (g *Generator) GenerateOneToManySubquery(columnName string, tableName strin
 	if err != nil {
 		return "", err
 	}
-	if value == "null" || value == "" || value == "empty" {
+	if value == "null" || value == "NULL" || value == "EMPTY" || value == "empty" || value == "" {
 		return "NULL", nil
 	}
 	return fmt.Sprintf("(SELECT %s FROM %s WHERE %s = '%s')", relation.PrimaryKey, relation.Table, relation.SearchKey, value), nil
