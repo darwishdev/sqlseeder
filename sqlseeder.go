@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/xuri/excelize/v2"
 )
@@ -114,7 +115,7 @@ func (s *Seeder) SeedFromExcel(excelContent bytes.Buffer, schemaName string, tab
 	for _, row := range rows[1:] { // Start from the second row (index 1)
 		dataRow := make(map[string]interface{})
 		for colIndex, colCell := range row {
-			currentColumnName := columns[colIndex]
+			currentColumnName := strings.ToLower(strings.TrimSpace(columns[colIndex]))
 			mappedColumnName, ok := columnsMapper[currentColumnName]
 			if !ok {
 				mappedColumnName = currentColumnName

@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"text/template"
+
+	"github.com/iancoleman/strcase"
 )
 
 // GeneratorInterface defines methods for generating SQL queries and related data.
@@ -78,7 +80,8 @@ func (g *Generator) IsLastIndex(index int, a interface{}) bool {
 
 // GetColumnName extracts the base column name (the part before any delimiters).
 func (g *Generator) GetColumnName(column string) string {
-	mappedColumnName, ok := g.ColumnsMapper[column]
+	norimalizedColumn := strcase.ToSnake(strings.ToLower(strings.TrimLeft(strings.TrimRight(column, " "), " ")))
+	mappedColumnName, ok := g.ColumnsMapper[norimalizedColumn]
 	if !ok {
 		mappedColumnName = column
 	}
@@ -90,6 +93,7 @@ func (g *Generator) GetColumnName(column string) string {
 		parts := strings.Split(column, "#")
 		return parts[0]
 	}
+
 	return mappedColumnName
 }
 
