@@ -28,6 +28,7 @@ type Seeder struct {
 type SeederConfig struct {
 	OneToManyDelimiter     string
 	HashFunc               func(string) string
+	ColumnsMapper          map[string]string
 	ManyToManyRowDelimiter string
 	ManyToManyDelimiter    string
 }
@@ -46,7 +47,7 @@ func NewSeeder(config SeederConfig) SeederInterface {
 		delemiter = config.ManyToManyRowDelimiter
 	}
 	adapter := NewAdapter(oneToManyDelimiter, manyToManyDelimiter)
-	generator := NewGenerator(adapter, delemiter, oneToManyDelimiter, manyToManyDelimiter, config.HashFunc)
+	generator := NewGenerator(adapter, config.ColumnsMapper, delemiter, oneToManyDelimiter, manyToManyDelimiter, config.HashFunc)
 	return &Seeder{
 		Adapter:   adapter,
 		HashFunc:  config.HashFunc,

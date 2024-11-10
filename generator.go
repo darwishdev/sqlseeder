@@ -33,11 +33,12 @@ type Generator struct {
 	ManyToManyDelimiter string
 	OneToManyDelimiter  string
 	Delimiter           string
+	ColumnsMapper       map[string]string
 	HashFunc            func(string) string
 	Adapter             AdapterInterface
 }
 
-func NewGenerator(adapter AdapterInterface, delimiter string, oneToManyDelimiter string, manyToManyDelimiter string, hashFunc func(string) string) GeneratorInterface {
+func NewGenerator(adapter AdapterInterface, columnsMapper map[string]string, delimiter string, oneToManyDelimiter string, manyToManyDelimiter string, hashFunc func(string) string) GeneratorInterface {
 	execPath, err := os.Executable()
 	if err != nil {
 		panic(err) // Handle the error appropriately
@@ -49,9 +50,9 @@ func NewGenerator(adapter AdapterInterface, delimiter string, oneToManyDelimiter
 		Delimiter:           delimiter,
 		ManyToManyDelimiter: manyToManyDelimiter,
 		OneToManyDelimiter:  oneToManyDelimiter,
+		ColumnsMapper:       columnsMapper,
 		HashFunc:            hashFunc,
-
-		Adapter: adapter,
+		Adapter:             adapter,
 	}
 }
 
@@ -77,15 +78,19 @@ func (g *Generator) IsLastIndex(index int, a interface{}) bool {
 
 // GetColumnName extracts the base column name (the part before any delimiters).
 func (g *Generator) GetColumnName(column string) string {
-	if g.Adapter.IsOneToMany(column) {
+	mappedColumnName, ok := g.ColumnsMapper[column]
+	if !ok {
+		mappedColumnName = column
+	}
+	if g.Adapter.IsOneToMany(mappedColumnName) {
 		parts := strings.Split(column, g.OneToManyDelimiter)
 		return parts[0]
 	}
-	if g.Adapter.IsHashedColumn(column) {
+	if g.Adapter.IsHashedColumn(mappedColumnName) {
 		parts := strings.Split(column, "#")
 		return parts[0]
 	}
-	return column
+	return mappedColumnName
 }
 
 // GenerateRootTableDataRow generates a map representing a single row of data for root columns.
