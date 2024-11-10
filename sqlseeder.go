@@ -13,7 +13,7 @@ type SeederInterface interface {
 	// SeedFromJSON generates SQL INSERT statements from JSON data.
 	SeedFromJSON(jsonContent bytes.Buffer, schemaName string, tableName string) (string, error)
 	// SeedFromExcel generates SQL INSERT statements from Excel data.
-	SeedFromExcel(excelContent bytes.Buffer, schemaName string, tableName string, sheetName string) (string, error)
+	SeedFromExcel(excelContent bytes.Buffer, schemaName string, tableName string, sheetName string, columnsMapper map[string]string) (string, error)
 	GetGenerator() GeneratorInterface
 	GetAdapter() AdapterInterface
 }
@@ -86,7 +86,7 @@ func (s *Seeder) SeedFromJSON(jsonContent bytes.Buffer, schemaName string, table
 	return result, nil
 }
 
-func (s *Seeder) SeedFromExcel(excelContent bytes.Buffer, schemaName string, tableName string, sheetName string) (string, error) {
+func (s *Seeder) SeedFromExcel(excelContent bytes.Buffer, schemaName string, tableName string, sheetName string, columnsMapper map[string]string) (string, error) {
 	// ... (code to open Excel file) ...
 	f, err := excelize.OpenReader(&excelContent)
 	if err != nil {
@@ -114,7 +114,12 @@ func (s *Seeder) SeedFromExcel(excelContent bytes.Buffer, schemaName string, tab
 	for _, row := range rows[1:] { // Start from the second row (index 1)
 		dataRow := make(map[string]interface{})
 		for colIndex, colCell := range row {
-			dataRow[columns[colIndex]] = colCell
+			currentColumnName := columns[colIndex]
+			mappedColumnName, ok := columnsMapper[currentColumnName]
+			if !ok {
+				mappedColumnName = currentColumnName
+			}
+			dataRow[mappedColumnName] = colCell
 		}
 		data = append(data, dataRow)
 	}

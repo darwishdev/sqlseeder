@@ -92,7 +92,7 @@ func main() {
 		log.Fatal().Err(err).Msg("cano open the file")
 	}
 
-	excelString, err := seeder.SeedFromExcel(*bytes.NewBuffer(excelFile), "accounts_schema", "roles", "roles")
+	excelString, err := seeder.SeedFromExcel(*bytes.NewBuffer(excelFile), "accounts_schema", "roles", "roles", map[string]string{})
 	if err != nil {
 		log.Fatal().Err(err).Msg("cano seed from excel")
 	}
