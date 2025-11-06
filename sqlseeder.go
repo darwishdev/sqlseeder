@@ -10,24 +10,116 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-// SeederInterface defines a method for generating a query string from a model
+// DataLoader interface for loading data from different sources
+type DataLoader interface {
+	Load() ([]map[string]interface{}, error)
+}
+
+// JsonLoader loads data from JSON
+type JsonLoader struct {
+	Content bytes.Buffer
+}
+
+// ExcelLoader loads data from Excel
+type ExcelLoader struct {
+	Content       bytes.Buffer
+	SheetName     string
+	ColumnsMapper map[string]string
+}
+
+// CSVLoader loads data from CSV (example for future extensibility)
+type CSVLoader struct {
+	Content       bytes.Buffer
+	ColumnsMapper map[string]string
+}
+
+// SeederConfig contains all seeding configuration
+type SeederConfig struct {
+	Loader       DataLoader
+	SchemaName   string // optional - required for table-based insert
+	TableName    string // optional - required for table-based insert
+	FunctionName string // optional - if provided, uses function-based import
+}
+
+// Load implementation for JsonLoader
+func (j JsonLoader) Load() ([]map[string]interface{}, error) {
+	var data []map[string]interface{}
+	if err := json.Unmarshal(j.Content.Bytes(), &data); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+	return data, nil
+}
+
+// Load implementation for ExcelLoader
+func (e ExcelLoader) Load() ([]map[string]interface{}, error) {
+	f, err := excelize.OpenReader(&e.Content)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open Excel file: %w", err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			fmt.Println("failed to close Excel file:", err)
+		}
+	}()
+
+	rows, err := f.GetRows(e.SheetName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sheet '%s': %w", e.SheetName, err)
+	}
+
+	if len(rows) <= 1 {
+		return nil, fmt.Errorf("sheet '%s' has no data", e.SheetName)
+	}
+
+	columns := rows[0]
+	var data []map[string]interface{}
+
+	for _, row := range rows[1:] {
+		dataRow := make(map[string]interface{})
+		for colIndex, colCell := range row {
+			if colIndex >= len(columns) {
+				break
+			}
+			currentColumnName := strings.ToLower(strings.TrimSpace(columns[colIndex]))
+			mappedColumnName := currentColumnName
+			if e.ColumnsMapper != nil {
+				if mapped, ok := e.ColumnsMapper[currentColumnName]; ok {
+					mappedColumnName = mapped
+				}
+			}
+			dataRow[mappedColumnName] = colCell
+		}
+		data = append(data, dataRow)
+	}
+
+	return data, nil
+}
+
+// SeederInterface defines methods for generating SQL from various sources
 type SeederInterface interface {
-	// SeedFromJSON generates SQL INSERT statements from JSON data.
-	SeedFromJSON(jsonContent bytes.Buffer, schemaName string, tableName string) (string, error)
-	// SeedFromExcel generates SQL INSERT statements from Excel data.
-	SeedFromExcel(excelContent bytes.Buffer, schemaName string, tableName string, sheetName string, columnsMapper map[string]string) (string, error)
+	// Seed is the unified method that accepts a SeederConfig
+	Seed(config SeederConfig) (string, error)
+
+	// Legacy methods - kept for backward compatibility
+	// SeedFromJSON(jsonContent bytes.Buffer, schemaName string, tableName string) (string, error)
+	// SeedFromExcel(excelContent bytes.Buffer, schemaName string, tableName string, sheetName string, columnsMapper map[string]string) (string, error)
+
 	GetGenerator() GeneratorInterface
 	GetAdapter() AdapterInterface
 }
 
-// Seeder implements the SeederInterface and holds a reference to a Seeder
+// Seeder implements the SeederInterface
 type Seeder struct {
 	Generator GeneratorInterface
 	Delimiter string
+
+	Embed     func(ctx context.Context, text string, model ...string) ([][]float32, error)
+	EmbedBulk func(ctx context.Context, text []string, model ...string) ([][][]float32, error)
 	HashFunc  func(string) string
 	Adapter   AdapterInterface
 }
-type SeederConfig struct {
+
+type SeederConfigInit struct {
 	OneToManyDelimiter     string
 	HashFunc               func(string) string
 	Embed                  func(ctx context.Context, text string, model ...string) ([][]float32, error)
@@ -37,8 +129,8 @@ type SeederConfig struct {
 	ManyToManyDelimiter    string
 }
 
-func NewSeeder(config SeederConfig) SeederInterface {
-	delemiter := "|"
+func NewSeeder(config SeederConfigInit) SeederInterface {
+	delimiter := "|"
 	oneToManyDelimiter := "**"
 	manyToManyDelimiter := "***"
 	if config.ManyToManyDelimiter != "" {
@@ -48,92 +140,90 @@ func NewSeeder(config SeederConfig) SeederInterface {
 		oneToManyDelimiter = config.OneToManyDelimiter
 	}
 	if config.ManyToManyRowDelimiter != "" {
-		delemiter = config.ManyToManyRowDelimiter
+		delimiter = config.ManyToManyRowDelimiter
 	}
 	adapter := NewAdapter(oneToManyDelimiter, manyToManyDelimiter)
-	generator := NewGenerator(adapter, config.ColumnsMapper, delemiter, oneToManyDelimiter, manyToManyDelimiter, config.HashFunc)
+	generator := NewGenerator(adapter, config.ColumnsMapper, delimiter, oneToManyDelimiter, manyToManyDelimiter, config.HashFunc)
 	return &Seeder{
 		Adapter:   adapter,
+		Embed:     config.Embed,
+		EmbedBulk: config.EmbedBulk,
 		HashFunc:  config.HashFunc,
-		Delimiter: delemiter,
+		Delimiter: delimiter,
 		Generator: generator,
 	}
 }
+
 func (s *Seeder) GetGenerator() GeneratorInterface {
 	return s.Generator
-
 }
 
 func (s *Seeder) GetAdapter() AdapterInterface {
 	return s.Adapter
-
 }
 
-// SeedFromJSON parses the JSON content from the buffer and generates the SQL
-func (s *Seeder) SeedFromJSON(jsonContent bytes.Buffer, schemaName string, tableName string) (string, error) {
-
-	// Unmarshal JSON data into SQLData struct
-	var data []map[string]interface{}
-	err := json.Unmarshal(jsonContent.Bytes(), &data)
-	if err != nil {
-		return "", err
-	}
-	sqlData, err := s.Generator.GenerateTableData(data, schemaName, tableName)
-	if err != nil {
-		return "", err
-	}
-	result, err := s.Generator.Generate(*sqlData)
+// Seed is the unified method
+func (s *Seeder) Seed(config SeederConfig) (string, error) {
+	// Load data using the provided loader
+	data, err := config.Loader.Load()
 	if err != nil {
 		return "", err
 	}
 
-	return result, nil
+	// If FunctionName is provided, use function-based import
+	if config.FunctionName != "" {
+		return s.generateFunctionCall(data, config.FunctionName)
+	}
+
+	// Otherwise, use table-based import
+	if config.SchemaName == "" || config.TableName == "" {
+		return "", fmt.Errorf("SchemaName and TableName are required when FunctionName is not provided")
+	}
+
+	sqlData, err := s.Generator.GenerateTableData(data, config.SchemaName, config.TableName)
+	if err != nil {
+		return "", err
+	}
+
+	return s.Generator.Generate(*sqlData)
 }
 
-func (s *Seeder) SeedFromExcel(excelContent bytes.Buffer, schemaName string, tableName string, sheetName string, columnsMapper map[string]string) (string, error) {
-	// ... (code to open Excel file) ...
-	f, err := excelize.OpenReader(&excelContent)
+// generateFunctionCall generates a SELECT statement calling a SQL function with JSON data
+func (s *Seeder) generateFunctionCall(data []map[string]interface{}, functionName string) (string, error) {
+	// Marshal data back to JSON
+	jsonBytes, err := json.Marshal(data)
 	if err != nil {
-		return "", fmt.Errorf("failed to open Excel file: %w", err)
-	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			fmt.Println("failed to close Excel file:", err)
-		}
-	}()
-	// Get the specified sheet
-	rows, err := f.GetRows(sheetName)
-	if err != nil {
-		return "", fmt.Errorf("failed to get sheet '%s': %w", sheetName, err)
-	}
-	// Check if the sheet has any data
-	if len(rows) <= 1 { // Must have at least 2 rows (header + data)
-		return "", fmt.Errorf("sheet '%s' has no data", sheetName)
+		return "", fmt.Errorf("failed to marshal data to JSON: %w", err)
 	}
 
-	// Get the header row (column names)
-	columns := rows[0]
-	// Prepare the data as a slice of maps
-	var data []map[string]interface{}
-	for _, row := range rows[1:] { // Start from the second row (index 1)
-		dataRow := make(map[string]interface{})
-		for colIndex, colCell := range row {
-			currentColumnName := strings.ToLower(strings.TrimSpace(columns[colIndex]))
-			mappedColumnName, ok := columnsMapper[currentColumnName]
-			if !ok {
-				mappedColumnName = currentColumnName
-			}
-			dataRow[mappedColumnName] = colCell
-		}
-		data = append(data, dataRow)
-	}
-	sqlData, err := s.Generator.GenerateTableData(data, schemaName, tableName)
-	if err != nil {
-		return "", err
-	}
-	result, err := s.Generator.Generate(*sqlData)
-	if err != nil {
-		return "", err
-	}
-	return result, nil
+	// Escape single quotes in JSON for SQL
+	jsonStr := string(jsonBytes)
+	jsonStr = strings.ReplaceAll(jsonStr, "'", "''")
+
+	// Generate SELECT statement
+	sql := fmt.Sprintf("SELECT %s('%s'::JSONB);", functionName, jsonStr)
+	return sql, nil
 }
+
+//
+// // Legacy method - SeedFromJSON
+// func (s *Seeder) SeedFromJSON(jsonContent bytes.Buffer, schemaName string, tableName string) (string, error) {
+// 	return s.Seed(SeederConfig{
+// 		Loader:     JsonLoader{Content: jsonContent},
+// 		SchemaName: schemaName,
+// 		TableName:  tableName,
+// 	})
+// }
+//
+// // Legacy method - SeedFromExcel
+// func (s *Seeder) SeedFromExcel(excelContent bytes.Buffer, schemaName string, tableName string, sheetName string, columnsMapper map[string]string) (string, error) {
+// 	return s.Seed(SeederConfig{
+// 		Loader: ExcelLoader{
+// 			Content:       excelContent,
+// 			SheetName:     sheetName,
+// 			ColumnsMapper: columnsMapper,
+// 		},
+// 		SchemaName: schemaName,
+// 		TableName:  tableName,
+// 	})
+// }
