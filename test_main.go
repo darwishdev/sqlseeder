@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	seeder SeederInterface = NewSeeder(SeederConfig{
+	seeder SeederInterface = NewSeeder(SeederConfigInit{
 		OneToManyDelimiter:     "**",
 		ManyToManyRowDelimiter: "|",
 		ManyToManyDelimiter:    "***",
