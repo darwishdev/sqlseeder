@@ -1,0 +1,3 @@
+with count as (
+select count(*) {{ GetFrom .QueryBase }} 
+) {{AppendCount .QueryBase}} and {{ConstructPaginator .SortColumn .SortValue .SortFunc}} 

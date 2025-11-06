@@ -2,6 +2,7 @@ package sqlseeder
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -29,6 +30,8 @@ type Seeder struct {
 type SeederConfig struct {
 	OneToManyDelimiter     string
 	HashFunc               func(string) string
+	Embed                  func(ctx context.Context, text string, model ...string) ([][]float32, error)
+	EmbedBulk              func(ctx context.Context, text []string, model ...string) ([][][]float32, error)
 	ColumnsMapper          map[string]string
 	ManyToManyRowDelimiter string
 	ManyToManyDelimiter    string

@@ -73,7 +73,6 @@ func (a *Adapter) GetFullTableName(schemaName string, tableName string) string {
 	return name
 }
 
-// IsOneToMany checks if a column represents a one-to-many relationship.
 func (a *Adapter) IsHashedColumn(columnName string) bool {
 	return strings.Contains(columnName, "#") && len(strings.Split(columnName, "#")) == 2
 }
