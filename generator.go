@@ -247,6 +247,8 @@ INSERT INTO {{ GetFullTableName $stmt.Schema $stmt.Table }} (
         {{- end }}
       {{- end }}
   ) {{- if not (IsLastIndex $rowIndex $stmt.Rows) }}, {{ end }}
+
+ON CONFLICT  DO NOTHING
 {{- end }};
 {{- end }}
 	`
