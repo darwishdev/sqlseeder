@@ -220,6 +220,7 @@ func (g *Generator) Generate(data SQLData) (string, error) {
 		"IsHashedColumn":        g.Adapter.IsHashedColumn,
 		"IsArrayColumn":         g.Adapter.IsArrayColumn,
 		"Escape":                g.EscapeSQLString,
+		"IsOneToMany":           g.Adapter.IsOneToMany,
 	}
 
 	// Read the SQL template from the template path.
@@ -239,6 +240,8 @@ INSERT INTO {{ GetFullTableName $stmt.Schema $stmt.Table }} (
           '{{ HashFunc $value }}' {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
 				{{- else if IsArrayColumn $column }}
           {{ $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
+				{{- else if IsOneToMany $column }}
+				 {{ WraptWithSingleQuoute ($value) }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- else }}
 				 {{ WraptWithSingleQuoute (Escape $value) }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- end }}
