@@ -232,9 +232,7 @@ INSERT INTO {{ GetFullTableName $stmt.Schema $stmt.Table }} (
       {{- $value := index $row $column }}
         {{- if IsHashedColumn $column }}
           '{{ HashFunc $value }}' {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
-           {{- else if IsArrayColumn $column }}
-              {{ FormatArrayValue $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
-            {{- else }}
+        {{- else }}
           {{ WraptWithSingleQuoute $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- end }}
       {{- end }}
