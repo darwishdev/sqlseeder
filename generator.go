@@ -230,8 +230,10 @@ INSERT INTO {{ GetFullTableName $stmt.Schema $stmt.Table }} (
   (
     {{- range $colIndex, $column := $stmt.Columns }}
       {{- $value := index $row $column }}
-				{{- if or (IsHashedColumn $column) (IsArrayColumn $column) }}
+        {{- if IsHashedColumn $column }}
           '{{ HashFunc $value }}' {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
+				{{- else if IsArrayColumn $column }}
+          {{ $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- else }}
           {{ WraptWithSingleQuoute $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- end }}
