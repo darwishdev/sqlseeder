@@ -218,8 +218,8 @@ func (g *Generator) Generate(data SQLData) (string, error) {
 		"WraptWithSingleQuoute": g.Adapter.WrapWithSingleQoute,
 		"GetColumnName":         g.GetColumnName,
 		"IsHashedColumn":        g.Adapter.IsHashedColumn,
-		"IsArrayColumn":         g.Adapter.IsArrayColumn, // New template function
-		"FormatArrayValue":      g.FormatArrayValue,      // New template function
+		"IsArrayColumn":         g.Adapter.IsArrayColumn,
+		"Escape":                g.EscapeSQLString,
 	}
 
 	// Read the SQL template from the template path.
@@ -240,7 +240,7 @@ INSERT INTO {{ GetFullTableName $stmt.Schema $stmt.Table }} (
 				{{- else if IsArrayColumn $column }}
           {{ $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- else }}
-          {{ WraptWithSingleQuoute $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
+				 {{ WraptWithSingleQuoute (Escape $value) }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- end }}
       {{- end }}
   ) {{- if not (IsLastIndex $rowIndex $stmt.Rows) }}, {{ end }}
