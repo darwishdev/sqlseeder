@@ -34,6 +34,7 @@ type AdapterInterface interface {
 
 	// GetPrimaryKeyFromTableName generates the primary key column name from a table name.
 	GetPrimaryKeyFromTableName(tableName string) string
+	IsArrayColumn(columnName string) bool
 
 	// SplitColumnsToStatemntParts splits the columns of a row into root columns and
 	// many-to-many columns.
@@ -56,6 +57,11 @@ func NewAdapter(oneToManyDelimiter string, manyToManyDelimiter string) AdapterIn
 		OneToManyDelimiter:  oneToManyDelimiter,
 		ManyToManyDelimiter: manyToManyDelimiter,
 	}
+}
+
+// IsArrayColumn checks if a column represents an array.
+func (a *Adapter) IsArrayColumn(columnName string) bool {
+	return strings.HasSuffix(columnName, "[]")
 }
 
 // GetLastIndex returns the last index of the given data structure.

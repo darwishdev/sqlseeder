@@ -110,13 +110,13 @@ type SeederInterface interface {
 
 // Seeder implements the SeederInterface
 type Seeder struct {
-	Generator GeneratorInterface
-	Delimiter string
-
-	Embed     func(ctx context.Context, text string, model ...string) ([][]float32, error)
-	EmbedBulk func(ctx context.Context, text []string, model ...string) ([][][]float32, error)
-	HashFunc  func(string) string
-	Adapter   AdapterInterface
+	Generator      GeneratorInterface
+	Delimiter      string
+	ArrayDelimiter string
+	Embed          func(ctx context.Context, text string, model ...string) ([][]float32, error)
+	EmbedBulk      func(ctx context.Context, text []string, model ...string) ([][][]float32, error)
+	HashFunc       func(string) string
+	Adapter        AdapterInterface
 }
 
 type SeederConfigInit struct {
@@ -126,11 +126,15 @@ type SeederConfigInit struct {
 	EmbedBulk              func(ctx context.Context, text []string, model ...string) ([][][]float32, error)
 	ColumnsMapper          map[string]string
 	ManyToManyRowDelimiter string
+	ArrayDelimiter         string
 	ManyToManyDelimiter    string
 }
 
 func NewSeeder(config SeederConfigInit) SeederInterface {
 	delimiter := "|"
+	if config.ArrayDelimiter == "" {
+		config.ArrayDelimiter = ","
+	}
 	oneToManyDelimiter := "**"
 	manyToManyDelimiter := "***"
 	if config.ManyToManyDelimiter != "" {
@@ -143,14 +147,15 @@ func NewSeeder(config SeederConfigInit) SeederInterface {
 		delimiter = config.ManyToManyRowDelimiter
 	}
 	adapter := NewAdapter(oneToManyDelimiter, manyToManyDelimiter)
-	generator := NewGenerator(adapter, config.ColumnsMapper, delimiter, oneToManyDelimiter, manyToManyDelimiter, config.HashFunc)
+	generator := NewGenerator(adapter, config.ColumnsMapper, delimiter, config.ArrayDelimiter, oneToManyDelimiter, manyToManyDelimiter, config.HashFunc)
 	return &Seeder{
-		Adapter:   adapter,
-		Embed:     config.Embed,
-		EmbedBulk: config.EmbedBulk,
-		HashFunc:  config.HashFunc,
-		Delimiter: delimiter,
-		Generator: generator,
+		Adapter:        adapter,
+		Embed:          config.Embed,
+		EmbedBulk:      config.EmbedBulk,
+		HashFunc:       config.HashFunc,
+		Delimiter:      delimiter,
+		ArrayDelimiter: config.ArrayDelimiter,
+		Generator:      generator,
 	}
 }
 

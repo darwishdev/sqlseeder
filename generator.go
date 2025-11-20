@@ -35,12 +35,13 @@ type Generator struct {
 	ManyToManyDelimiter string
 	OneToManyDelimiter  string
 	Delimiter           string
+	ArrayDelimiter      string
 	ColumnsMapper       map[string]string
 	HashFunc            func(string) string
 	Adapter             AdapterInterface
 }
 
-func NewGenerator(adapter AdapterInterface, columnsMapper map[string]string, delimiter string, oneToManyDelimiter string, manyToManyDelimiter string, hashFunc func(string) string) GeneratorInterface {
+func NewGenerator(adapter AdapterInterface, columnsMapper map[string]string, delimiter string, arrayDelimiter string, oneToManyDelimiter string, manyToManyDelimiter string, hashFunc func(string) string) GeneratorInterface {
 	execPath, err := os.Executable()
 	if err != nil {
 		panic(err) // Handle the error appropriately
@@ -53,6 +54,7 @@ func NewGenerator(adapter AdapterInterface, columnsMapper map[string]string, del
 		ManyToManyDelimiter: manyToManyDelimiter,
 		OneToManyDelimiter:  oneToManyDelimiter,
 		ColumnsMapper:       columnsMapper,
+		ArrayDelimiter:      arrayDelimiter,
 		HashFunc:            hashFunc,
 		Adapter:             adapter,
 	}
@@ -94,6 +96,10 @@ func (g *Generator) GetColumnName(column string) string {
 		return parts[0]
 	}
 
+	if g.Adapter.IsArrayColumn(mappedColumnName) {
+		return strings.TrimSuffix(mappedColumnName, "[]")
+	}
+
 	return mappedColumnName
 }
 
@@ -105,16 +111,32 @@ func (g *Generator) GenerateRootTableDataRow(rootColumns []string, row map[strin
 		var err error
 		value := row[rootColumn].(string)
 		isOneToMany := g.Adapter.IsOneToMany(rootColumn)
+		isArrayColumn := g.Adapter.IsArrayColumn(rootColumn)
 		if isOneToMany {
 			value, err = g.GenerateOneToManySubquery(rootColumn, tableName, row[rootColumn].(string))
 			if err != nil {
 				return nil, err
 			}
+		} else if isArrayColumn {
+			value = g.FormatArrayValue(value)
 		}
+
 		rootRow[rootColumn] = value
 	}
 
 	return rootRow, nil
+}
+
+func (g *Generator) FormatArrayValue(value string) string {
+	if value == "" || value == "NULL" || value == "null" {
+		return "NULL"
+	}
+	parts := strings.Split(value, g.ArrayDelimiter)
+	quotedParts := make([]string, len(parts))
+	for i, p := range parts {
+		quotedParts[i] = fmt.Sprint("'%s'", strings.TrimSpace(p))
+	}
+	return fmt.Sprintf("ARRAY[%s]", strings.Join(quotedParts, ", "))
 }
 
 // GenerateTableData generates SQLData from a slice of maps.
@@ -191,6 +213,8 @@ func (g *Generator) Generate(data SQLData) (string, error) {
 		"WraptWithSingleQuoute": g.Adapter.WrapWithSingleQoute,
 		"GetColumnName":         g.GetColumnName,
 		"IsHashedColumn":        g.Adapter.IsHashedColumn,
+		"IsArrayColumn":         g.Adapter.IsArrayColumn, // New template function
+		"FormatArrayValue":      g.FormatArrayValue,      // New template function
 	}
 
 	// Read the SQL template from the template path.
@@ -208,7 +232,9 @@ INSERT INTO {{ GetFullTableName $stmt.Schema $stmt.Table }} (
       {{- $value := index $row $column }}
         {{- if IsHashedColumn $column }}
           '{{ HashFunc $value }}' {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
-        {{- else }}
+           {{- else if IsArrayColumn $column }}
+              {{ FormatArrayValue $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
+            {{- else }}
           {{ WraptWithSingleQuoute $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- end }}
       {{- end }}
