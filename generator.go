@@ -127,6 +127,9 @@ func (g *Generator) GenerateRootTableDataRow(rootColumns []string, row map[strin
 	return rootRow, nil
 }
 
+func (g *Generator) EscapeSQLString(s string) string {
+	return strings.ReplaceAll(s, "'", "''")
+}
 func (g *Generator) FormatArrayValue(value string) string {
 	if value == "" || value == "NULL" || value == "null" {
 		return "NULL"
@@ -134,7 +137,9 @@ func (g *Generator) FormatArrayValue(value string) string {
 	parts := strings.Split(value, g.ArrayDelimiter)
 	quotedParts := make([]string, len(parts))
 	for i, p := range parts {
-		quotedParts[i] = fmt.Sprintf("'%s'", strings.TrimSpace(p))
+		cleaned := strings.TrimSpace(p)
+		escaped := g.EscapeSQLString(cleaned) // escape single quotes
+		quotedParts[i] = fmt.Sprintf("'%s'", escaped)
 	}
 	return fmt.Sprintf("ARRAY[%s]", strings.Join(quotedParts, ", "))
 }
