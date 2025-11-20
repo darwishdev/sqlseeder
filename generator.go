@@ -134,7 +134,7 @@ func (g *Generator) FormatArrayValue(value string) string {
 	parts := strings.Split(value, g.ArrayDelimiter)
 	quotedParts := make([]string, len(parts))
 	for i, p := range parts {
-		quotedParts[i] = fmt.Sprint("'%s'", strings.TrimSpace(p))
+		quotedParts[i] = fmt.Sprintf("'%s'", p)
 	}
 	return fmt.Sprintf("ARRAY[%s]", strings.Join(quotedParts, ", "))
 }
