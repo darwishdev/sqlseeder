@@ -134,7 +134,7 @@ func (g *Generator) FormatArrayValue(value string) string {
 	parts := strings.Split(value, g.ArrayDelimiter)
 	quotedParts := make([]string, len(parts))
 	for i, p := range parts {
-		quotedParts[i] = fmt.Sprintf("'%s'", p)
+		quotedParts[i] = fmt.Sprintf("'%s'", strings.TrimSpace(p))
 	}
 	return fmt.Sprintf("ARRAY[%s]", strings.Join(quotedParts, ", "))
 }
@@ -230,7 +230,7 @@ INSERT INTO {{ GetFullTableName $stmt.Schema $stmt.Table }} (
   (
     {{- range $colIndex, $column := $stmt.Columns }}
       {{- $value := index $row $column }}
-        {{- if IsHashedColumn $column }}
+				{{- if or (IsHashedColumn $column) (IsArrayColumn $column) }}
           '{{ HashFunc $value }}' {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
         {{- else }}
           {{ WraptWithSingleQuoute $value }} {{- if not (IsLastIndex $colIndex $stmt.Columns) }}, {{ end }}
